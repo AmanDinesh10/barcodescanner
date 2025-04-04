@@ -1,22 +1,24 @@
-import React, { useRef, useState } from 'react';
-import Tesseract from 'tesseract.js';
+import React, { useRef, useState } from "react";
+import Tesseract from "tesseract.js";
 
 const OCRScanner = () => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [text, setText] = useState('');
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const [imageSrc, setImageSrc] = useState(null);
+  const [text, setText] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
   // 📷 Start Camera
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
     } catch (err) {
-      alert('Please allow camera permissions.');
+      alert("Please allow camera permissions.");
       console.error(err);
     }
   };
@@ -27,7 +29,7 @@ const OCRScanner = () => {
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     canvas.width = video.videoWidth;
@@ -39,20 +41,20 @@ const OCRScanner = () => {
   };
 
   // 📂 Upload from Device
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = (e) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = () => {
-        setImageSrc(reader.result as string);
-        extractText(reader.result as string);
+        setImageSrc(reader.result);
+        extractText(reader.result);
       };
       reader.readAsDataURL(file);
     }
   };
 
   // 🧠 Preprocess + Extract
-  const preprocessImage = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => {
+  const preprocessImage = (ctx, canvas) => {
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const pixels = imageData.data;
 
@@ -64,50 +66,63 @@ const OCRScanner = () => {
     }
 
     ctx.putImageData(imageData, 0, 0);
-    const dataURL = canvas.toDataURL('image/png');
+    const dataURL = canvas.toDataURL("image/png");
     setImageSrc(dataURL);
     extractText(dataURL);
   };
 
   // 🔍 OCR Extraction
-  const extractText = async (imgSrc: string) => {
+  const extractText = async (imgSrc) => {
     setIsProcessing(true);
     try {
-      const { data: { text } } = await Tesseract.recognize(imgSrc, 'eng', {
-        logger: m => console.log(m),
+      const {
+        data: { text },
+      } = await Tesseract.recognize(imgSrc, "eng", {
+        logger: (m) => console.log(m),
       });
       setText(text);
       alert(`Extracted Text: ${text}`);
     } catch (err) {
-      console.error('OCR error:', err);
+      console.error("OCR error:", err);
     } finally {
       setIsProcessing(false);
     }
   };
 
   return (
-    <div style={{ padding: '1rem' }}>
+    <div style={{ padding: "1rem" }}>
       <h2>📄 OCR Scanner</h2>
 
       {/* 🔘 Camera Controls */}
-      <div style={{ marginBottom: '1rem' }}>
+      <div style={{ marginBottom: "1rem" }}>
         <button onClick={startCamera}>Start Camera</button>
         <button onClick={captureFromCamera}>Capture from Camera</button>
         <input type="file" accept="image/*" onChange={handleUpload} />
       </div>
 
       {/* 🎥 Video Preview */}
-      <video ref={videoRef} autoPlay playsInline style={{ width: '100%', maxWidth: 400 }} />
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        style={{ width: "100%", maxWidth: 400 }}
+      />
 
       {/* 🖼 Canvas */}
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
+      <canvas ref={canvasRef} style={{ display: "none" }} />
 
       {/* 📷 Image Preview */}
-      {imageSrc && <img src={imageSrc} alt="Captured" style={{ maxWidth: '100%', marginTop: '1rem' }} />}
+      {imageSrc && (
+        <img
+          src={imageSrc}
+          alt="Captured"
+          style={{ maxWidth: "100%", marginTop: "1rem" }}
+        />
+      )}
 
       {/* 📝 Extracted Text */}
       {text && (
-        <div style={{ marginTop: '1rem' }}>
+        <div style={{ marginTop: "1rem" }}>
           <h3>🧾 Recognized Text:</h3>
           <pre>{text}</pre>
         </div>
