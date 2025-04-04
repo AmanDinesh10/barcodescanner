@@ -1,13 +1,14 @@
 import React, { useRef, useState } from 'react';
 import Tesseract from 'tesseract.js';
 
-const Scanner = () => {
+const OCRScanner = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const [capturedImage, setCapturedImage] = useState(null);
   const [recognizedText, setRecognizedText] = useState('');
-  const [isOcrActive, setIsOcrActive] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  // 🔵 Start Camera for OCR
+  // 🎥 Open Camera
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
@@ -20,37 +21,29 @@ const Scanner = () => {
     }
   };
 
-  // 📷 Capture Image for OCR with Preprocessing
-  const captureImageForOCR = () => {
+  // 📸 Capture Image
+  const captureImage = () => {
     if (!videoRef.current || !canvasRef.current) return;
-
-    setIsOcrActive(true);
 
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
 
-    // Draw video frame to canvas
+    // Draw the current video frame onto the canvas
     context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
-    // Convert image to grayscale
-    let imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-    let pixels = imageData.data;
-    for (let i = 0; i < pixels.length; i += 4) {
-      let gray = 0.3 * pixels[i] + 0.59 * pixels[i + 1] + 0.11 * pixels[i + 2];
-      pixels[i] = pixels[i + 1] = pixels[i + 2] = gray > 128 ? 255 : 0; // Apply thresholding
-    }
-    context.putImageData(imageData, 0, 0);
-
-    // Convert canvas to Blob and send to OCR
-    canvas.toBlob((blob) => {
-      recognizeText(blob);
-    });
+    // Convert canvas to image URL
+    const imageUrl = canvas.toDataURL('image/png');
+    setCapturedImage(imageUrl);
   };
 
   // 🟢 Perform OCR
-  const recognizeText = async (imageBlob) => {
+  const recognizeText = async () => {
+    if (!capturedImage) return;
+
+    setIsProcessing(true);
+
     try {
-      const { data: { text } } = await Tesseract.recognize(imageBlob, 'eng', {
+      const { data: { text } } = await Tesseract.recognize(capturedImage, 'eng', {
         tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
         logger: (m) => console.log(m),
       });
@@ -58,31 +51,48 @@ const Scanner = () => {
       console.log("Recognized Text:", text);
       setRecognizedText(text);
       alert(`Recognized Text: ${text}`);
-      setIsOcrActive(false);
     } catch (err) {
       console.error('OCR Error:', err);
-      setIsOcrActive(false);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   return (
     <div>
-      {/* 🔵 Open Camera */}
+      Capture Image
+
+      {/* 🎥 Open Camera */}
       <button onClick={startCamera}>Open Camera</button>
 
-      {/* 🟢 OCR Text Recognition */}
-      <button onClick={captureImageForOCR} disabled={isOcrActive}>
-        {isOcrActive ? 'Processing...' : 'Recognize Text (OCR)'}
+      {/* 📸 Capture Image */}
+      <button onClick={captureImage} disabled={!videoRef.current?.srcObject}>
+        Capture Image
       </button>
 
-      {/* Video Feed for OCR */}
+      {/* 🟢 Run OCR on Captured Image */}
+      <button onClick={recognizeText} disabled={!capturedImage || isProcessing}>
+        {isProcessing ? 'Processing...' : 'Extract Text'}
+      </button>
+
+      {/* Video Feed */}
       <video ref={videoRef} autoPlay playsInline style={{ width: '100%' }}></video>
+
+      {/* Hidden Canvas */}
       <canvas ref={canvasRef} style={{ display: 'none' }} width="640" height="480"></canvas>
 
-      {/* Display Results */}
+      {/* Display Captured Image */}
+      {capturedImage && (
+        <div>
+          <h3>Captured Image:</h3>
+          <img src={capturedImage} alt="Captured" style={{ width: '100%', maxWidth: '400px' }} />
+        </div>
+      )}
+
+      {/* Display Extracted Text */}
       {recognizedText && <p>📝 Recognized Text: {recognizedText}</p>}
     </div>
   );
 };
 
-export default Scanner;
+export default OCRScanner;
