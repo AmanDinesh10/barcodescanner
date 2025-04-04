@@ -1,89 +1,86 @@
 import React, { useRef, useState } from 'react';
-import { BrowserMultiFormatReader } from '@zxing/browser';
 import Tesseract from 'tesseract.js';
 
 const Scanner = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const [scannedData, setScannedData] = useState(null);
   const [recognizedText, setRecognizedText] = useState('');
-  const [scannerActive, setScannerActive] = useState(false);
+  const [isOcrActive, setIsOcrActive] = useState(false);
 
-  let codeReader = new BrowserMultiFormatReader();
-
-  // Start Barcode/QR Code Scanning
-  const startScanner = async () => {
-    setScannerActive(true);
+  // 🔵 Start Camera for OCR
+  const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
-
-      codeReader.decodeFromVideoDevice(undefined, videoRef.current, (result, err) => {
-        if (result) {
-          console.log('Scanned Code:', result.getText());
-          alert(`Scanned Code: ${result.getText()}`);
-          setScannedData(result.getText());
-          stopScanner(); // Stop scanning after detecting a code
-        }
-        if (err) {
-          console.error('Scanning Error:', err);
-        }
-      });
-
     } catch (err) {
       console.error('Camera access denied:', err);
       alert("Camera access denied. Please enable camera permissions.");
     }
   };
 
-  // Stop the scanner and close the camera
-  const stopScanner = () => {
-    setScannerActive(false);
-    codeReader.reset();
-    if (videoRef.current?.srcObject) {
-      videoRef.current.srcObject.getTracks().forEach(track => track.stop());
-    }
-  };
-
-  // Capture Image for OCR
+  // 📷 Capture Image for OCR with Preprocessing
   const captureImageForOCR = () => {
     if (!videoRef.current || !canvasRef.current) return;
 
+    setIsOcrActive(true);
+
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
+
+    // Draw video frame to canvas
     context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
+    // Convert image to grayscale
+    let imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    let pixels = imageData.data;
+    for (let i = 0; i < pixels.length; i += 4) {
+      let gray = 0.3 * pixels[i] + 0.59 * pixels[i + 1] + 0.11 * pixels[i + 2];
+      pixels[i] = pixels[i + 1] = pixels[i + 2] = gray > 128 ? 255 : 0; // Apply thresholding
+    }
+    context.putImageData(imageData, 0, 0);
+
+    // Convert canvas to Blob and send to OCR
     canvas.toBlob((blob) => {
       recognizeText(blob);
     });
   };
 
-  // Recognize Text using OCR
+  // 🟢 Perform OCR
   const recognizeText = async (imageBlob) => {
     try {
-      const { data: { text } } = await Tesseract.recognize(imageBlob, 'eng');
+      const { data: { text } } = await Tesseract.recognize(imageBlob, 'eng', {
+        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
+        logger: (m) => console.log(m),
+      });
+
       console.log("Recognized Text:", text);
       setRecognizedText(text);
       alert(`Recognized Text: ${text}`);
+      setIsOcrActive(false);
     } catch (err) {
       console.error('OCR Error:', err);
+      setIsOcrActive(false);
     }
   };
 
   return (
     <div>
-      <button onClick={scannerActive ? stopScanner : startScanner}>
-        {scannerActive ? 'Stop Scanner' : 'Open Camera'}
-      </button>
-      <button onClick={captureImageForOCR}>Recognize Text</button>
+      {/* 🔵 Open Camera */}
+      <button onClick={startCamera}>Open Camera</button>
 
-      <video ref={videoRef} autoPlay playsInline style={{ width: '100%', display: scannerActive ? 'block' : 'none' }}></video>
+      {/* 🟢 OCR Text Recognition */}
+      <button onClick={captureImageForOCR} disabled={isOcrActive}>
+        {isOcrActive ? 'Processing...' : 'Recognize Text (OCR)'}
+      </button>
+
+      {/* Video Feed for OCR */}
+      <video ref={videoRef} autoPlay playsInline style={{ width: '100%' }}></video>
       <canvas ref={canvasRef} style={{ display: 'none' }} width="640" height="480"></canvas>
 
-      {scannedData && <p>Scanned Code: {scannedData}</p>}
-      {recognizedText && <p>Recognized Text: {recognizedText}</p>}
+      {/* Display Results */}
+      {recognizedText && <p>📝 Recognized Text: {recognizedText}</p>}
     </div>
   );
 };
