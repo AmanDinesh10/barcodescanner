@@ -1,49 +1,30 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import Tesseract from 'tesseract.js';
 
-const OCRScanner = () => {
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const [capturedImage, setCapturedImage] = useState(null);
+const OCRUploader = () => {
+  const [selectedImage, setSelectedImage] = useState(null);
   const [recognizedText, setRecognizedText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 🎥 Open Camera
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (err) {
-      console.error('Camera access denied:', err);
-      alert("Camera access denied. Please enable camera permissions.");
+  // 📂 Handle Image Upload
+  const handleImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const imageUrl = URL.createObjectURL(file);
+      setSelectedImage(imageUrl);
+      setRecognizedText('');
     }
   };
 
-  // 📸 Capture Image
-  const captureImage = () => {
-    if (!videoRef.current || !canvasRef.current) return;
-
-    const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
-
-    // Draw the current video frame onto the canvas
-    context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-
-    // Convert canvas to image URL
-    const imageUrl = canvas.toDataURL('image/png');
-    setCapturedImage(imageUrl);
-  };
-
-  // 🟢 Perform OCR
+  // 🟢 Perform OCR on Uploaded Image
   const recognizeText = async () => {
-    if (!capturedImage) return;
-
+    if (!selectedImage) return;
+    
     setIsProcessing(true);
+    setRecognizedText('');
 
     try {
-      const { data: { text } } = await Tesseract.recognize(capturedImage, 'eng', {
+      const { data: { text } } = await Tesseract.recognize(selectedImage, 'eng', {
         tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
         logger: (m) => console.log(m),
       });
@@ -60,32 +41,19 @@ const OCRScanner = () => {
 
   return (
     <div>
-      Capture Image
-
-      {/* 🎥 Open Camera */}
-      <button onClick={startCamera}>Open Camera</button>
-
-      {/* 📸 Capture Image */}
-      <button onClick={captureImage} disabled={!videoRef.current?.srcObject}>
-        Capture Image
-      </button>
-
-      {/* 🟢 Run OCR on Captured Image */}
-      <button onClick={recognizeText} disabled={!capturedImage || isProcessing}>
+      {/* 📂 Upload Image */}
+      <input type="file" accept="image/*" onChange={handleImageUpload} />
+      
+      {/* 🟢 Run OCR on Uploaded Image */}
+      <button onClick={recognizeText} disabled={!selectedImage || isProcessing}>
         {isProcessing ? 'Processing...' : 'Extract Text'}
       </button>
 
-      {/* Video Feed */}
-      <video ref={videoRef} autoPlay playsInline style={{ width: '100%' }}></video>
-
-      {/* Hidden Canvas */}
-      <canvas ref={canvasRef} style={{ display: 'none' }} width="640" height="480"></canvas>
-
-      {/* Display Captured Image */}
-      {capturedImage && (
+      {/* Display Uploaded Image */}
+      {selectedImage && (
         <div>
-          <h3>Captured Image:</h3>
-          <img src={capturedImage} alt="Captured" style={{ width: '100%', maxWidth: '400px' }} />
+          <h3>Uploaded Image:</h3>
+          <img src={selectedImage} alt="Uploaded Preview" style={{ width: '100%', maxWidth: '400px' }} />
         </div>
       )}
 
@@ -95,4 +63,4 @@ const OCRScanner = () => {
   );
 };
 
-export default OCRScanner;
+export default OCRUploader;
