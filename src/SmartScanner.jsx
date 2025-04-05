@@ -150,7 +150,7 @@ const TextScanner = () => {
     try {
       const base64 = imageSrc.replace(/^data:image\/(png|jpeg);base64,/, '');
       const response = await fetch(
-        `https://vision.googleapis.com/v1/images:annotate?key=YOUR_GOOGLE_API_KEY`,
+        `https://vision.googleapis.com/v1/images:annotate?key=AIzaSyA_C5AAyv3LRliBmdZAzzmbCK5Quev2Jak`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
