@@ -1,5 +1,5 @@
 // src/components/SmartScanner.js
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/library';
 
 const SmartScanner = () => {
@@ -16,82 +16,76 @@ const SmartScanner = () => {
         </button>
       </div>
 
-      {activeTab === 'qr' ? <QRScanner /> : <TextScanner />}
+      {activeTab === 'qr' ? <BarcodeScanner /> : <TextScanner />}
     </div>
   );
 };
 
-const QRScanner = () => {
+const BarcodeScanner = () => {
   const videoRef = useRef(null);
-  const [scannedCode, setScannedCode] = useState('');
-  const [scanner, setScanner] = useState(null);
+  const codeReader = useRef(null);
+  const [scannedValue, setScannedValue] = useState('');
+  const [scanning, setScanning] = useState(false);
 
-  const startScanner = async () => {
-    const codeReader = new BrowserMultiFormatReader();
-    setScanner(codeReader);
-
+  const startScan = async () => {
     try {
-      const videoInputDevices = await BrowserMultiFormatReader.listVideoInputDevices();
-      const backCamera = videoInputDevices.find(device =>
-        device.label.toLowerCase().includes('back') || device.label.toLowerCase().includes('environment')
-      ) || videoInputDevices[0];
+      setScanning(true);
+      codeReader.current = new BrowserMultiFormatReader();
+      const devices = await BrowserMultiFormatReader.listVideoInputDevices();
 
-      if (!backCamera) throw new Error('No camera found');
+      if (devices.length === 0) {
+        alert('No camera devices found.');
+        setScanning(false);
+        return;
+      }
 
-      codeReader.decodeFromVideoDevice(
-        backCamera.deviceId,
-        videoRef.current,
-        (result, err) => {
-          if (result) {
-            setScannedCode(result.getText());
-            stopScanner();
-          }
+      const rearCamera = devices.find(device => device.label.toLowerCase().includes('back')) || devices[0];
+
+      codeReader.current.decodeFromVideoDevice(rearCamera.deviceId, videoRef.current, (result, err) => {
+        if (result) {
+          setScannedValue(result.getText());
+          stopScan();
         }
-      );
+      });
     } catch (err) {
       console.error('Camera error:', err);
       alert('Please allow camera access.');
+      setScanning(false);
     }
   };
 
-  const stopScanner = () => {
-    if (scanner) {
-      scanner.reset();
+  const stopScan = () => {
+    if (codeReader.current) {
+      codeReader.current.reset();
     }
-    if (videoRef.current && videoRef.current.srcObject) {
-      videoRef.current.srcObject.getTracks().forEach(track => track.stop());
-    }
+    setScanning(false);
   };
+
+  useEffect(() => {
+    return () => {
+      stopScan(); // cleanup on unmount
+    };
+  }, []);
 
   return (
-    <div>
-      <button onClick={startScanner}>Open QR/Barcode Camera</button>
-      <button onClick={stopScanner} style={{ marginLeft: 10 }}>
-        Close Camera
-      </button>
+    <div style={{ padding: '1rem' }}>
+      <h2>📦 QR / Barcode Scanner</h2>
 
-      <div style={{ position: 'relative', marginTop: 10 }}>
-        <video
-          ref={videoRef}
-          autoPlay
-          style={{ width: '100%', maxWidth: 400 }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            top: '30%',
-            left: '15%',
-            width: '70%',
-            height: '30%',
-            border: '2px dashed red',
-          }}
-        />
-      </div>
+      {!scanning && (
+        <button onClick={startScan}>Open Camera</button>
+      )}
 
-      {scannedCode && (
+      {scanning && (
+        <>
+          <video ref={videoRef} style={{ width: '100%', maxWidth: '400px', marginTop: 10 }} />
+          <button onClick={stopScan} style={{ marginTop: 10 }}>Close Camera</button>
+        </>
+      )}
+
+      {scannedValue && (
         <div style={{ marginTop: 20 }}>
-          <h3>🔍 Scanned Code:</h3>
-          <p>{scannedCode}</p>
+          <h3>✅ Scanned Code:</h3>
+          <pre>{scannedValue}</pre>
         </div>
       )}
     </div>
