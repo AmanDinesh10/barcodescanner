@@ -3,7 +3,7 @@ import { BrowserMultiFormatReader } from '@zxing/browser';
 
 const BarcodeScanner = () => {
   const videoRef = useRef(null);
-  const codeReaderRef = useRef(new BrowserMultiFormatReader());
+  const [codeReader] = useState(new BrowserMultiFormatReader()); // initialize once
   const [scannedValue, setScannedValue] = useState('');
   const [isScanning, setIsScanning] = useState(false);
 
@@ -15,6 +15,7 @@ const BarcodeScanner = () => {
       const videoDevices = await BrowserMultiFormatReader.listVideoInputDevices();
       if (!videoDevices.length) {
         alert('No camera found');
+        setIsScanning(false);
         return;
       }
 
@@ -22,23 +23,27 @@ const BarcodeScanner = () => {
         device.label.toLowerCase().includes('back')
       ) || videoDevices[0];
 
-      codeReaderRef.current.decodeFromVideoDevice(backCamera.deviceId, videoRef.current, (result, err) => {
+      // Reset scanner before starting a new scan
+      codeReader.reset();
+
+      codeReader.decodeFromVideoDevice(backCamera.deviceId, videoRef.current, (result, err) => {
         if (result) {
           setScannedValue(result.getText());
-          stopScanner();
+          stopScanner(); // auto stop after successful scan
         }
       });
     } catch (error) {
-      alert('Please allow camera access');
-      console.error('Error starting scanner:', error);
+      console.error('Camera error:', error);
+      alert('Please allow camera access.');
+      setIsScanning(false);
     }
   };
 
   const stopScanner = () => {
     try {
-      codeReaderRef.current?.reset();
-    } catch (error) {
-      console.warn('Error stopping scanner:', error);
+      codeReader.reset();
+    } catch (e) {
+      console.warn('Error while stopping scanner:', e);
     }
     setIsScanning(false);
   };
@@ -65,7 +70,7 @@ const BarcodeScanner = () => {
         </>
       )}
 
-      {scannedValue && (
+      {scannedValue && !isScanning && (
         <div style={{ marginTop: 20 }}>
           <h3>✅ Scanned Result:</h3>
           <pre>{scannedValue}</pre>
