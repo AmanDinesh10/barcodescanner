@@ -3,15 +3,14 @@ import { BrowserMultiFormatReader } from '@zxing/browser';
 
 const BarcodeScanner = () => {
   const videoRef = useRef(null);
-  const codeReaderRef = useRef(null);
+  const codeReaderRef = useRef(new BrowserMultiFormatReader());
   const [scannedValue, setScannedValue] = useState('');
   const [isScanning, setIsScanning] = useState(false);
 
   const startScanner = async () => {
     try {
-      setIsScanning(true);
       setScannedValue('');
-      codeReaderRef.current = new BrowserMultiFormatReader();
+      setIsScanning(true);
 
       const videoDevices = await BrowserMultiFormatReader.listVideoInputDevices();
       if (!videoDevices.length) {
@@ -26,7 +25,7 @@ const BarcodeScanner = () => {
       codeReaderRef.current.decodeFromVideoDevice(backCamera.deviceId, videoRef.current, (result, err) => {
         if (result) {
           setScannedValue(result.getText());
-          stopScanner(); // auto-close camera after successful scan
+          stopScanner();
         }
       });
     } catch (error) {
@@ -36,24 +35,20 @@ const BarcodeScanner = () => {
   };
 
   const stopScanner = () => {
-    if (codeReaderRef.current) {
-      codeReaderRef.current.reset();
+    try {
+      codeReaderRef.current?.reset();
+    } catch (error) {
+      console.warn('Error stopping scanner:', error);
     }
     setIsScanning(false);
-  };
-
-  const handleNewScan = () => {
-    startScanner();
   };
 
   return (
     <div style={{ padding: 20 }}>
       <h2>📦 Barcode / QR Code Scanner</h2>
 
-      {!isScanning && (
-        <button onClick={startScanner}>
-          {scannedValue ? 'Scan New Barcode' : 'Open Camera'}
-        </button>
+      {!isScanning && !scannedValue && (
+        <button onClick={startScanner}>Open Camera</button>
       )}
 
       {isScanning && (
@@ -74,6 +69,9 @@ const BarcodeScanner = () => {
         <div style={{ marginTop: 20 }}>
           <h3>✅ Scanned Result:</h3>
           <pre>{scannedValue}</pre>
+          <button onClick={startScanner} style={{ marginTop: 10 }}>
+            Scan Again
+          </button>
         </div>
       )}
     </div>
