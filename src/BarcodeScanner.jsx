@@ -3,7 +3,8 @@ import { BrowserMultiFormatReader } from '@zxing/browser';
 
 const BarcodeScanner = () => {
   const videoRef = useRef(null);
-  const [codeReader] = useState(new BrowserMultiFormatReader()); // initialize once
+  const streamRef = useRef(null); // save the stream manually
+  const codeReaderRef = useRef(new BrowserMultiFormatReader());
   const [scannedValue, setScannedValue] = useState('');
   const [isScanning, setIsScanning] = useState(false);
 
@@ -12,45 +13,55 @@ const BarcodeScanner = () => {
       setScannedValue('');
       setIsScanning(true);
 
-      const videoDevices = await BrowserMultiFormatReader.listVideoInputDevices();
-      if (!videoDevices.length) {
-        alert('No camera found');
+      const devices = await BrowserMultiFormatReader.listVideoInputDevices();
+      if (!devices.length) {
+        alert('No camera devices found');
         setIsScanning(false);
         return;
       }
 
-      const backCamera = videoDevices.find(device =>
-        device.label.toLowerCase().includes('back')
-      ) || videoDevices[0];
+      const backCamera = devices.find(d => d.label.toLowerCase().includes('back')) || devices[0];
 
-      // Reset scanner before starting a new scan
-      codeReader.reset();
+      // start the camera
+      const selectedDeviceId = backCamera.deviceId;
 
-      codeReader.decodeFromVideoDevice(backCamera.deviceId, videoRef.current, (result, err) => {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: selectedDeviceId } },
+        audio: false,
+      });
+
+      videoRef.current.srcObject = stream;
+      videoRef.current.setAttribute('playsinline', true); // for iOS
+      videoRef.current.play();
+      streamRef.current = stream;
+
+      codeReaderRef.current.decodeFromVideoElement(videoRef.current, (result, err) => {
         if (result) {
           setScannedValue(result.getText());
-          stopScanner(); // auto stop after successful scan
+          stopScanner(); // stop after successful scan
         }
       });
-    } catch (error) {
-      console.error('Camera error:', error);
+
+    } catch (err) {
+      console.error(err);
       alert('Please allow camera access.');
       setIsScanning(false);
     }
   };
 
   const stopScanner = () => {
-    try {
-      codeReader.reset();
-    } catch (e) {
-      console.warn('Error while stopping scanner:', e);
+    // stop camera stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
     }
+    codeReaderRef.current?.reset?.(); // safety check
     setIsScanning(false);
   };
 
   return (
     <div style={{ padding: 20 }}>
-      <h2>📦 Barcode / QR Code Scanner</h2>
+      <h2>📦 QR / Barcode Scanner</h2>
 
       {!isScanning && !scannedValue && (
         <button onClick={startScanner}>Open Camera</button>
