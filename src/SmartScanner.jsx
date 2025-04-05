@@ -1,6 +1,6 @@
 // src/components/SmartScanner.js
-import React, { useRef, useState, useEffect } from 'react';
-import QrScanner from 'qr-scanner';
+import React, { useRef, useState } from 'react';
+import { BrowserMultiFormatReader } from '@zxing/library';
 
 const SmartScanner = () => {
   const [activeTab, setActiveTab] = useState('qr');
@@ -24,48 +24,52 @@ const SmartScanner = () => {
 const QRScanner = () => {
   const videoRef = useRef(null);
   const [scannedCode, setScannedCode] = useState('');
-  const [qrScannerInstance, setQrScannerInstance] = useState(null);
+  const [scanner, setScanner] = useState(null);
 
-  const startQRScanner = async () => {
+  const startScanner = async () => {
+    const codeReader = new BrowserMultiFormatReader();
+    setScanner(codeReader);
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { exact: 'environment' } },
-      });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
+      const videoInputDevices = await BrowserMultiFormatReader.listVideoInputDevices();
+      const backCamera = videoInputDevices.find(device =>
+        device.label.toLowerCase().includes('back') || device.label.toLowerCase().includes('environment')
+      ) || videoInputDevices[0];
 
-        const qr = new QrScanner(
-          videoRef.current,
-          (result) => {
-            setScannedCode(result.data);
-            qr.stop();
-            stopCamera();
-          },
-          { returnDetailedScanResult: true }
-        );
-        qr.start();
-        setQrScannerInstance(qr);
-      }
+      if (!backCamera) throw new Error('No camera found');
+
+      codeReader.decodeFromVideoDevice(
+        backCamera.deviceId,
+        videoRef.current,
+        (result, err) => {
+          if (result) {
+            setScannedCode(result.getText());
+            stopScanner();
+          }
+        }
+      );
     } catch (err) {
+      console.error('Camera error:', err);
       alert('Please allow camera access.');
-      console.error(err);
     }
   };
 
-  const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      videoRef.current.srcObject.getTracks().forEach((track) => track.stop());
+  const stopScanner = () => {
+    if (scanner) {
+      scanner.reset();
     }
-    if (qrScannerInstance) qrScannerInstance.stop();
+    if (videoRef.current && videoRef.current.srcObject) {
+      videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+    }
   };
 
   return (
     <div>
-      <button onClick={startQRScanner}>Open QR Camera</button>
-      <button onClick={stopCamera} style={{ marginLeft: 10 }}>
+      <button onClick={startScanner}>Open QR/Barcode Camera</button>
+      <button onClick={stopScanner} style={{ marginLeft: 10 }}>
         Close Camera
       </button>
+
       <div style={{ position: 'relative', marginTop: 10 }}>
         <video
           ref={videoRef}
@@ -86,7 +90,7 @@ const QRScanner = () => {
 
       {scannedCode && (
         <div style={{ marginTop: 20 }}>
-          <h3>🔍 Scanned QR/Barcode:</h3>
+          <h3>🔍 Scanned Code:</h3>
           <p>{scannedCode}</p>
         </div>
       )}
