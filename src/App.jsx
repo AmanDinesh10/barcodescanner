@@ -1,7 +1,8 @@
+import CameraScan from './CameraScan'
 import './App.css'
-import CameraOCR from './CameraOCR'
-import Scanner from './Scanner'
-import SmartScanner from './SmartScanner'
+// import CameraOCR from './CameraOCR'
+// import Scanner from './Scanner'
+// import SmartScanner from './SmartScanner'
 
 function App() {
 
@@ -11,7 +12,8 @@ function App() {
       {/* <Scanner />    */}
 
       {/* <CameraOCR /> */}
-      <SmartScanner />
+      {/* <SmartScanner /> */}
+      <CameraScan />
       </div>
       
     </>
