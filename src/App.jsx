@@ -1,4 +1,5 @@
 import './App.css'
+import CameraOCR from './CameraOCR'
 import Scanner from './Scanner'
 
 function App() {
@@ -6,7 +7,9 @@ function App() {
   return (
     <>
       <div>
-      <Scanner />   
+      {/* <Scanner />    */}
+
+      <CameraOCR />
       </div>
       
     </>
